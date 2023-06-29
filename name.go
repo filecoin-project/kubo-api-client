@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ipfs/boxo/ipns"
 	"io"
 
 	iface "github.com/ipfs/boxo/coreiface"
@@ -29,28 +30,8 @@ func (e *ipnsEntry) Value() path.Path {
 	return e.path
 }
 
-func (api *NameAPI) Publish(ctx context.Context, p path.Path, opts ...caopts.NamePublishOption) (iface.IpnsEntry, error) {
-	options, err := caopts.NamePublishOptions(opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	req := api.core().Request("name/publish", p.String()).
-		Option("key", options.Key).
-		Option("allow-offline", options.AllowOffline).
-		Option("lifetime", options.ValidTime).
-		Option("resolve", false)
-
-	if options.TTL != nil {
-		req.Option("ttl", options.TTL)
-	}
-
-	var out ipnsEntry
-	if err := req.Exec(ctx, &out); err != nil {
-		return nil, err
-	}
-	out.path = path.New(out.JValue)
-	return &out, out.path.IsValid()
+func (api *NameAPI) Publish(ctx context.Context, p path.Path, opts ...caopts.NamePublishOption) (ipns.Name, error) {
+	panic("broken")
 }
 
 func (api *NameAPI) Search(ctx context.Context, name string, opts ...caopts.NameResolveOption) (<-chan iface.IpnsResult, error) {
