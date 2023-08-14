@@ -8,7 +8,7 @@ import (
 
 	"github.com/ipfs/boxo/coreiface/options"
 	"github.com/ipfs/boxo/coreiface/path"
-	"github.com/ipfs/go-block-format"
+	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	format "github.com/ipfs/go-ipld-format"
 	multicodec "github.com/multiformats/go-multicodec"
