@@ -60,7 +60,7 @@ func (r *requestBuilder) Body(body io.Reader) RequestBuilder {
 func (r *requestBuilder) FileBody(body io.Reader) RequestBuilder {
 	pr, _ := files.NewReaderPathFile("/dev/stdin", io.NopCloser(body), nil)
 	d := files.NewMapDirectory(map[string]files.Node{"": pr})
-	r.body = files.NewMultiFileReader(d, false)
+	r.body = files.NewMultiFileReader(d, false, true)
 
 	return r
 }
