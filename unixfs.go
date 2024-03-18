@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"io"
 
-	iface "github.com/ipfs/boxo/coreiface"
-	caopts "github.com/ipfs/boxo/coreiface/options"
-	"github.com/ipfs/boxo/coreiface/path"
 	"github.com/ipfs/boxo/files"
 	unixfs "github.com/ipfs/boxo/ipld/unixfs"
 	unixfs_pb "github.com/ipfs/boxo/ipld/unixfs/pb"
+	"github.com/ipfs/boxo/path"
 	"github.com/ipfs/go-cid"
+	iface "github.com/filecoin-project/kubo-api-client/coreiface"
+	caopts "github.com/filecoin-project/kubo-api-client/coreiface/options"
 	mh "github.com/multiformats/go-multihash"
 )
 
@@ -26,15 +26,15 @@ type addEvent struct {
 
 type UnixfsAPI HttpApi
 
-func (api *UnixfsAPI) Add(ctx context.Context, f files.Node, opts ...caopts.UnixfsAddOption) (path.Resolved, error) {
+func (api *UnixfsAPI) Add(ctx context.Context, f files.Node, opts ...caopts.UnixfsAddOption) (path.ImmutablePath, error) {
 	options, _, err := caopts.UnixfsAddOptions(opts...)
 	if err != nil {
-		return nil, err
+		return path.ImmutablePath{}, err
 	}
 
 	mht, ok := mh.Codes[options.MhType]
 	if !ok {
-		return nil, fmt.Errorf("unknowm mhType %d", options.MhType)
+		return path.ImmutablePath{}, fmt.Errorf("unknowm mhType %d", options.MhType)
 	}
 
 	req := api.core().Request("add").
@@ -62,15 +62,21 @@ func (api *UnixfsAPI) Add(ctx context.Context, f files.Node, opts ...caopts.Unix
 	}
 
 	d := files.NewMapDirectory(map[string]files.Node{"": f}) // unwrapped on the other side
-	req.Body(files.NewMultiFileReader(d, false, true))
+
+	version, err := api.core().loadRemoteVersion()
+	if err != nil {
+		return path.ImmutablePath{}, err
+	}
+	useEncodedAbsPaths := version.LT(encodedAbsolutePathVersion)
+	req.Body(files.NewMultiFileReader(d, false, useEncodedAbsPaths))
 
 	var out addEvent
 	resp, err := req.Send(ctx)
 	if err != nil {
-		return nil, err
+		return path.ImmutablePath{}, err
 	}
 	if resp.Error != nil {
-		return nil, resp.Error
+		return path.ImmutablePath{}, resp.Error
 	}
 	defer resp.Output.Close()
 	dec := json.NewDecoder(resp.Output)
@@ -82,7 +88,7 @@ loop:
 		case io.EOF:
 			break loop
 		default:
-			return nil, err
+			return path.ImmutablePath{}, err
 		}
 		out = evt
 
@@ -96,26 +102,26 @@ loop:
 			if out.Hash != "" {
 				c, err := cid.Parse(out.Hash)
 				if err != nil {
-					return nil, err
+					return path.ImmutablePath{}, err
 				}
 
-				ifevt.Path = path.IpfsPath(c)
+				ifevt.Path = path.FromCid(c)
 			}
 
 			select {
 			case options.Events <- ifevt:
 			case <-ctx.Done():
-				return nil, ctx.Err()
+				return path.ImmutablePath{}, ctx.Err()
 			}
 		}
 	}
 
 	c, err := cid.Parse(out.Hash)
 	if err != nil {
-		return nil, err
+		return path.ImmutablePath{}, err
 	}
 
-	return path.IpfsPath(c), nil
+	return path.FromCid(c), nil
 }
 
 type lsLink struct {

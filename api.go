@@ -1,15 +1,20 @@
 package rpc
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
-	iface "github.com/ipfs/boxo/coreiface"
-	caopts "github.com/ipfs/boxo/coreiface/options"
+	"github.com/blang/semver/v4"
+	iface "github.com/filecoin-project/kubo-api-client/coreiface"
+	caopts "github.com/filecoin-project/kubo-api-client/coreiface/options"
 	"github.com/ipfs/boxo/ipld/merkledag"
 	"github.com/ipfs/go-cid"
 	legacy "github.com/ipfs/go-ipld-legacy"
@@ -31,6 +36,14 @@ const (
 // ErrApiNotFound if we fail to find a running daemon.
 var ErrApiNotFound = errors.New("ipfs api address could not be found")
 
+type VersionInfo struct {
+	Version string
+	Commit  string
+	Repo    string
+	System  string
+	Golang  string
+}
+
 // HttpApi implements github.com/ipfs/interface-go-ipfs-core/CoreAPI using
 // IPFS HTTP API.
 //
@@ -42,13 +55,15 @@ type HttpApi struct {
 	Headers     http.Header
 	applyGlobal func(*requestBuilder)
 	ipldDecoder *legacy.Decoder
+	versionMu   sync.Mutex
+	version     *semver.Version
 }
 
 // NewLocalApi tries to construct new HttpApi instance communicating with local
 // IPFS daemon
 //
 // Daemon api address is pulled from the $IPFS_PATH/api file.
-// If $IPFS_PATH env var is not present, it defaults to ~/.ipfs
+// If $IPFS_PATH env var is not present, it defaults to ~/.ipfs.
 func NewLocalApi() (*HttpApi, error) {
 	baseDir := os.Getenv(EnvDir)
 	if baseDir == "" {
@@ -59,7 +74,7 @@ func NewLocalApi() (*HttpApi, error) {
 }
 
 // NewPathApi constructs new HttpApi by pulling api address from specified
-// ipfspath. Api file should be located at $ipfspath/api
+// ipfspath. Api file should be located at $ipfspath/api.
 func NewPathApi(ipfspath string) (*HttpApi, error) {
 	a, err := ApiAddr(ipfspath)
 	if err != nil {
@@ -71,7 +86,7 @@ func NewPathApi(ipfspath string) (*HttpApi, error) {
 	return NewApi(a)
 }
 
-// ApiAddr reads api file in specified ipfs path
+// ApiAddr reads api file in specified ipfs path.
 func ApiAddr(ipfspath string) (ma.Multiaddr, error) {
 	baseDir, err := homedir.Expand(ipfspath)
 	if err != nil {
@@ -88,7 +103,7 @@ func ApiAddr(ipfspath string) (ma.Multiaddr, error) {
 	return ma.NewMultiaddr(strings.TrimSpace(string(api)))
 }
 
-// NewApi constructs HttpApi with specified endpoint
+// NewApi constructs HttpApi with specified endpoint.
 func NewApi(a ma.Multiaddr) (*HttpApi, error) {
 	c := &http.Client{
 		Transport: &http.Transport{
@@ -100,7 +115,7 @@ func NewApi(a ma.Multiaddr) (*HttpApi, error) {
 	return NewApiWithClient(a, c)
 }
 
-// NewApiWithClient constructs HttpApi with specified endpoint and custom http client
+// NewApiWithClient constructs HttpApi with specified endpoint and custom http client.
 func NewApiWithClient(a ma.Multiaddr, c *http.Client) (*HttpApi, error) {
 	_, url, err := manet.DialArgs(a)
 	if err != nil {
@@ -151,6 +166,7 @@ func NewURLApiWithClient(url string, c *http.Client) (*HttpApi, error) {
 	api.httpcli.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
 		return fmt.Errorf("unexpected redirect")
 	}
+
 	return api, nil
 }
 
@@ -160,14 +176,19 @@ func (api *HttpApi) WithOptions(opts ...caopts.ApiOption) (iface.CoreAPI, error)
 		return nil, err
 	}
 
-	subApi := *api
-	subApi.applyGlobal = func(req *requestBuilder) {
-		if options.Offline {
-			req.Option("offline", options.Offline)
-		}
+	subApi := &HttpApi{
+		url:     api.url,
+		httpcli: api.httpcli,
+		Headers: api.Headers,
+		applyGlobal: func(req *requestBuilder) {
+			if options.Offline {
+				req.Option("offline", options.Offline)
+			}
+		},
+		ipldDecoder: api.ipldDecoder,
 	}
 
-	return &subApi, nil
+	return subApi, nil
 }
 
 func (api *HttpApi) Request(command string, args ...string) RequestBuilder {
@@ -213,6 +234,8 @@ func (api *HttpApi) Object() iface.ObjectAPI {
 	return (*ObjectAPI)(api)
 }
 
+// nolint deprecated
+// Deprecated: use [HttpApi.Routing] instead.
 func (api *HttpApi) Dht() iface.DhtAPI {
 	return (*DhtAPI)(api)
 }
@@ -227,4 +250,37 @@ func (api *HttpApi) PubSub() iface.PubSubAPI {
 
 func (api *HttpApi) Routing() iface.RoutingAPI {
 	return (*RoutingAPI)(api)
+}
+
+func (api *HttpApi) loadRemoteVersion() (*semver.Version, error) {
+	api.versionMu.Lock()
+	defer api.versionMu.Unlock()
+
+	if api.version == nil {
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+		defer cancel()
+
+		resp, err := api.Request("version").Send(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp.Error != nil {
+			return nil, resp.Error
+		}
+		defer resp.Close()
+		var out VersionInfo
+		dec := json.NewDecoder(resp.Output)
+		if err := dec.Decode(&out); err != nil {
+			return nil, err
+		}
+
+		remoteVersion, err := semver.New(out.Version)
+		if err != nil {
+			return nil, err
+		}
+
+		api.version = remoteVersion
+	}
+
+	return api.version, nil
 }
