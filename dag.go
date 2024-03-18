@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/filecoin-project/kubo-api-client/coreiface/options"
 	"github.com/ipfs/boxo/path"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	format "github.com/ipfs/go-ipld-format"
-	"github.com/filecoin-project/kubo-api-client/coreiface/options"
 	multicodec "github.com/multiformats/go-multicodec"
 )
 

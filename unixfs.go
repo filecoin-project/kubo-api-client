@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"io"
 
+	iface "github.com/filecoin-project/kubo-api-client/coreiface"
+	caopts "github.com/filecoin-project/kubo-api-client/coreiface/options"
 	"github.com/ipfs/boxo/files"
 	unixfs "github.com/ipfs/boxo/ipld/unixfs"
 	unixfs_pb "github.com/ipfs/boxo/ipld/unixfs/pb"
 	"github.com/ipfs/boxo/path"
 	"github.com/ipfs/go-cid"
-	iface "github.com/filecoin-project/kubo-api-client/coreiface"
-	caopts "github.com/filecoin-project/kubo-api-client/coreiface/options"
 	mh "github.com/multiformats/go-multihash"
 )
 

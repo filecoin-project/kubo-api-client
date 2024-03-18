@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
+	"github.com/filecoin-project/kubo-api-client/coreiface/options"
 	"github.com/ipfs/boxo/ipns"
 	"github.com/ipfs/boxo/path"
-	"github.com/filecoin-project/kubo-api-client/coreiface/options"
 )
 
 var ErrResolveFailed = errors.New("could not resolve name")

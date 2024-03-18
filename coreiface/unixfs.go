@@ -3,10 +3,10 @@ package iface
 import (
 	"context"
 
+	"github.com/filecoin-project/kubo-api-client/coreiface/options"
 	"github.com/ipfs/boxo/files"
 	"github.com/ipfs/boxo/path"
 	"github.com/ipfs/go-cid"
-	"github.com/filecoin-project/kubo-api-client/coreiface/options"
 )
 
 type AddEvent struct {

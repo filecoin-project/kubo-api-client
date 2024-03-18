@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"io"
 
+	iface "github.com/filecoin-project/kubo-api-client/coreiface"
+	caopts "github.com/filecoin-project/kubo-api-client/coreiface/options"
 	"github.com/ipfs/boxo/ipns"
 	"github.com/ipfs/boxo/namesys"
 	"github.com/ipfs/boxo/path"
-	iface "github.com/filecoin-project/kubo-api-client/coreiface"
-	caopts "github.com/filecoin-project/kubo-api-client/coreiface/options"
 )
 
 type NameAPI HttpApi

@@ -5,8 +5,8 @@ package iface
 import (
 	"context"
 
-	"github.com/ipfs/boxo/path"
 	"github.com/filecoin-project/kubo-api-client/coreiface/options"
+	"github.com/ipfs/boxo/path"
 
 	ipld "github.com/ipfs/go-ipld-format"
 )

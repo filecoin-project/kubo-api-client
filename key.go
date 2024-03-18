@@ -5,10 +5,10 @@ import (
 	"context"
 	"errors"
 
-	"github.com/ipfs/boxo/ipns"
-	"github.com/ipfs/boxo/path"
 	iface "github.com/filecoin-project/kubo-api-client/coreiface"
 	caopts "github.com/filecoin-project/kubo-api-client/coreiface/options"
+	"github.com/ipfs/boxo/ipns"
+	"github.com/ipfs/boxo/path"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multibase"
 )
